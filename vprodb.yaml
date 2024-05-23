@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vprodb
+  labels:
+    app: vprodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vprodb
+  template:
+    metadata:
+      labels:
+        app: vprodb
+    spec:
+      containers:
+      - name: vprodb
+        image: mohamednasser018/vprofiledb:latest
+        ports:
+        - name: vprodb-port
+          containerPort: 3306
+        volumeMounts:
+        - name: vpro-db-data
+          mountPath: /var/lib/mysql  
+        env:
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vprodb-secret
+              key: password
+      volumes:
+      - name: vpro-db-data
+        awsElasticBlockStore:
+          volumeID: vol-0956ca1b22bb29c9b
+          fsType: ext4
+
+      initContainers:
+      - name: init-lost-found
+        image: busybox
+        args: ["rm", "-rf", "/var/lib/mysql/lost+found"]
+        volumeMounts:
+        - name: vpro-db-data
+          mountPath: /var/lib/mysql  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vprodb-service
+spec:
+  selector:
+    app: vprodb
+  ports:
+  - protocol: TCP
+    port: 3306
+    targetPort: vprodb-port
+  type: ClusterIP
